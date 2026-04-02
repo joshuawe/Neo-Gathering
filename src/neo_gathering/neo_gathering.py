@@ -1,3 +1,4 @@
+import logging
 from os import path
 from typing import List, Optional
 
@@ -9,6 +10,8 @@ import pygame
 from gymnasium.spaces import Box, Discrete
 from gymnasium.utils import EzPickle
 
+
+logger = logging.getLogger(__name__)
 
 class NeoGathering(gym.Env, EzPickle):
     """
@@ -80,6 +83,8 @@ class NeoGathering(gym.Env, EzPickle):
             np.sum([num_dragons, num_gold, num_silver, 1]) <= map_size[0] * map_size[1]
         ), f"map_size is too small for the desired number of items."
         # assert map_size[0]>obs_window[0] and map_size[1] > obs_window[1] # TODO: should we allow observation windows larger than map? Do allow larger than 2x the size?
+        if (obs_window[0]%2 == 0) or (obs_window[1]%2 == 0):
+            logger.warning("At least one dim of the observation window is even, this results in the viewing box being NOT centered around the agent. In order to center the agent perfectly in the observation window use uneven numbers.")  # noqa: E501
 
         self.render_mode = render_mode
 
