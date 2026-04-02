@@ -49,30 +49,49 @@ class NeoGathering(gym.Env, EzPickle):
 
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
-    def __init__(self, render_mode: Optional[str] = None):
+    def __init__(
+        self,
+        render_mode: Optional[str] = None,
+        num_dragons: int = 2,
+        num_gold: int = 1,
+        num_silver: int = 1,
+        map_size: tuple = (5, 5),
+    ):
         EzPickle.__init__(self, render_mode)
 
+        # type check
+        assert isinstance(num_dragons, int), (
+            f"num_dragons should be int, was {type(num_dragons)}"
+        )
+        assert isinstance(num_gold, int), (
+            f"num_dragons should be int, was {type(num_gold)}"
+        )
+        assert isinstance(num_silver, int), (
+            f"num_dragons should be int, was {type(num_silver)}"
+        )
+        assert len(map_size) == 2, (
+            f"Invalid map_size. Expected 2 dims, got {len(map_size)}."
+        )
+        assert isinstance(map_size[0], int) and isinstance(map_size[1], int), (
+            f"map_size should have two ints, got {type(map_size[0])} and {type(map_size[1])}"
+        )
+        assert (
+            np.sum([num_dragons, num_gold, num_silver, 1]) <= map_size[0] * map_size[1]
+        ), f"map_size is too small for the desired number of items."
+
         self.render_mode = render_mode
-        
-        self.map_size = (5,5)
+
+        self.map_size = map_size
 
         self.object_dict = {"home": 1, "dragon": 2, "gold": 3, "silver": 4}
-        self.num_dragons = 2
-        self.num_gold = 1
-        self.num_silver = 1
+        self.num_dragons = num_dragons
+        self.num_gold = num_gold
+        self.num_silver = num_silver
 
-        # The map of resource gathering env
-        # self.map = np.array(
-        #     [
-        #         [" ", " ", "R1", "E2", " "],
-        #         [" ", " ", "E1", " ", "R2"],
-        #         [" ", "H", " ", " ", " "],
-        #         [" ", " ", " ", "E1", " "],
-        #         [" ", " ", "H", " ", " "],
-        #     ]
-        # )
-        self.map = self.create_map()
-        self.initial_pos = np.array([4, 2], dtype=np.int32)
+        self.map = self.create_map(self.map_size)
+        self.initial_pos = np.array(
+            [4, 2], dtype=np.int32
+        )  # TODO: initial position should be at home position
 
         self.dir = {
             0: np.array([-1, 0], dtype=np.int32),  # up
@@ -90,7 +109,7 @@ class NeoGathering(gym.Env, EzPickle):
             low=np.array([-1.0, 0.0, 0.0]),
             high=np.array([0.0, 1.0, 1.0]),
             shape=(3,),
-            dtype=np.float64,
+            dtype=np.float32,
         )
         self.reward_dim = 3
 
@@ -111,7 +130,7 @@ class NeoGathering(gym.Env, EzPickle):
         self.window = None
         self.last_action = None
 
-    def create_map(self, map_size: Optional[tuple] = None, seed: Optional[int] = None) -> np.ndarray:
+    def create_map(self, map_size: tuple = None) -> np.ndarray:
         map_size = self.map_size if map_size is None else map_size
         # empty map
         map = np.zeros(map_size, dtype=np.int16)
@@ -120,7 +139,9 @@ class NeoGathering(gym.Env, EzPickle):
         options = list(options)
         # pick positions: Home, Dragon 1, Dragon 2, Gold, Sivler
         num_picks = 1 + self.num_dragons + self.num_gold + self.num_silver
-        picks: list = np.random.choice(range(len(options)), size=num_picks, replace=False).tolist()
+        picks: list = np.random.choice(
+            range(len(options)), size=num_picks, replace=False
+        ).tolist()
         positions = [options[i] for i in picks]
         # populate the map
         map[positions.pop()] = self.object_dict["home"]
@@ -264,7 +285,11 @@ class NeoGathering(gym.Env, EzPickle):
     def reset(self, seed=None, **kwargs):
         super().reset(seed=seed)
 
-        self.current_pos = self.initial_pos
+        # create map
+        self.map = self.create_map(self.map_size)
+        self.current_pos = self._get_home_position()
+
+        self.current_pos = self.initial_pos  # TODO: delete this
         self.has_gem = 0
         self.has_gold = 0
         self.step_count = 0.0
@@ -307,7 +332,7 @@ class NeoGathering(gym.Env, EzPickle):
             done = True
             vec_reward[1] = self.has_gold
             vec_reward[2] = self.has_gem
-        return vec_reward,done
+        return vec_reward, done
 
     def close(self):
         if self.window is not None:
@@ -315,6 +340,14 @@ class NeoGathering(gym.Env, EzPickle):
             pygame.quit()
             self.window = None
             self.clock = None
+
+    def _get_home_position(self) -> tuple[int, int]:
+        wheres = np.argwhere(self.map == self.object_dict["home"])
+        assert len(wheres) == 1, (
+            f"Found to many 'home' cells. Should be 1, found {len(wheres)}"
+        )
+        position = wheres[0]
+        return position
 
 
 if __name__ == "__main__":

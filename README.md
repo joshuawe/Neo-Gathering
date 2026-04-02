@@ -10,3 +10,4 @@ We take the original Resource Gathering environment and improve it:
 - [ ] Computationally faster -> JAX implementation
 - [ ] Computationally faster -> env vectorization (JAX implementation planned.)
 - [ ] benchmar the difference in speed using `gymnasium.utils.performance.benchmark_step` and co
+- [ ] Scalar objective `neo-gathering` and multiple objective env `mo-neo-gathering` (this is basically the same env with one flag set differenctly)
