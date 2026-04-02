@@ -76,7 +76,7 @@ class NeoGathering(gym.Env, EzPickle):
             f"map_size should have two ints, got {type(map_size[0])} and {type(map_size[1])}"
         )
         assert (
-            np.sum([num_dragons, num_gold, num_silver, 1]) >= map_size[0] * map_size[1]
+            np.sum([num_dragons, num_gold, num_silver, 1]) <= map_size[0] * map_size[1]
         ), f"map_size is too small for the desired number of items."
 
         self.render_mode = render_mode
