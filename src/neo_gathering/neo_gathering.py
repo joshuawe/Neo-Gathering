@@ -171,8 +171,86 @@ class NeoGathering(gym.Env, EzPickle):
             and observation[1] >= 0
             and observation[1] < self.size
         )
+    
+    def get_observation(self):
+        # current pos and the window size
+        x, y = self.current_pos
+        ws_x, ws_y = self.obs_window
+        dx = ws_x // 2
+        dy = ws_y // 2
+        # pad the map so edge positions don't produce out-of-bounds/negative slices
+        wall = self.object_dict["wall"]
+        padded_map = np.pad(self.map, ((dx, dx), (dy, dy)), constant_values=wall)
+        self.obs[:] = padded_map[x : x + ws_x, y : y + ws_y]
+        return self.obs
 
-    def render(self):
+    def reset(self, seed=None, **kwargs):
+        super().reset(seed=seed)
+
+        # create map
+        self.map = self.create_map(self.map_size)
+        self.current_pos = self._get_home_position()
+
+        self.has_gem = 0
+        self.has_gold = 0
+        self.step_count = 0.0
+        observation = self.get_observation()
+        if self.render_mode == "human":
+            self.render()
+        return observation, {}
+
+    def step(self, action):
+        action = int(action)
+        next_pos = self.current_pos + self.dir[action]
+        self.last_action = action
+
+        if self.is_valid_observation(next_pos):
+            self.current_pos = next_pos
+
+        vec_reward, done = self.get_reward()
+
+        observation = self.get_observation()
+        if self.render_mode == "human":
+            self.render()
+        return observation, vec_reward, done, False, {}
+
+    def get_reward(self):
+        vec_reward = np.zeros(3, dtype=np.float32)
+        done = False
+
+        cell = self.get_map_value(self.current_pos)
+        if cell == self.object_dict["gold"]:
+            self.has_gold = 1
+        elif cell == self.object_dict["silver"]:
+            self.has_gem = 1
+        elif cell == self.object_dict["dragon"]:
+            # 0.9 chance of survival, 0.1 chance of death
+            if self.np_random.random() < 0.1:
+                vec_reward[0] = -1.0
+                done = True
+        elif cell == self.object_dict["home"]:
+            # if you are home again
+            done = True
+            vec_reward[1] = self.has_gold
+            vec_reward[2] = self.has_gem
+        return vec_reward, done
+
+    def close(self):
+        if self.window is not None:
+            pygame.display.quit()
+            pygame.quit()
+            self.window = None
+            self.clock = None
+
+    def _get_home_position(self) -> tuple[int, int]:
+        wheres = np.argwhere(self.map == self.object_dict["home"])
+        assert len(wheres) == 1, (
+            f"Found to many 'home' cells. Should be 1, found {len(wheres)}"
+        )
+        position = wheres[0]
+        return position
+    
+       def render(self):
         if self.render_mode is None:
             assert self.spec is not None
             gym.logger.warn(
@@ -300,84 +378,6 @@ class NeoGathering(gym.Env, EzPickle):
             return np.transpose(
                 np.array(pygame.surfarray.pixels3d(self.window)), axes=(1, 0, 2)
             )
-    
-    def get_observation(self):
-        # current pos and the window size
-        x, y = self.current_pos
-        ws_x, ws_y = self.obs_window
-        dx = ws_x // 2
-        dy = ws_y // 2
-        # pad the map so edge positions don't produce out-of-bounds/negative slices
-        wall = self.object_dict["wall"]
-        padded_map = np.pad(self.map, ((dx, dx), (dy, dy)), constant_values=wall)
-        self.obs[:] = padded_map[x : x + ws_x, y : y + ws_y]
-        return self.obs
-
-    def reset(self, seed=None, **kwargs):
-        super().reset(seed=seed)
-
-        # create map
-        self.map = self.create_map(self.map_size)
-        self.current_pos = self._get_home_position()
-
-        self.has_gem = 0
-        self.has_gold = 0
-        self.step_count = 0.0
-        observation = self.get_observation()
-        if self.render_mode == "human":
-            self.render()
-        return observation, {}
-
-    def step(self, action):
-        action = int(action)
-        next_pos = self.current_pos + self.dir[action]
-        self.last_action = action
-
-        if self.is_valid_observation(next_pos):
-            self.current_pos = next_pos
-
-        vec_reward, done = self.get_reward()
-
-        observation = self.get_observation()
-        if self.render_mode == "human":
-            self.render()
-        return observation, vec_reward, done, False, {}
-
-    def get_reward(self):
-        vec_reward = np.zeros(3, dtype=np.float32)
-        done = False
-
-        cell = self.get_map_value(self.current_pos)
-        if cell == self.object_dict["gold"]:
-            self.has_gold = 1
-        elif cell == self.object_dict["silver"]:
-            self.has_gem = 1
-        elif cell == self.object_dict["dragon"]:
-            # 0.9 chance of survival, 0.1 chance of death
-            if self.np_random.random() < 0.1:
-                vec_reward[0] = -1.0
-                done = True
-        elif cell == self.object_dict["home"]:
-            # if you are home again
-            done = True
-            vec_reward[1] = self.has_gold
-            vec_reward[2] = self.has_gem
-        return vec_reward, done
-
-    def close(self):
-        if self.window is not None:
-            pygame.display.quit()
-            pygame.quit()
-            self.window = None
-            self.clock = None
-
-    def _get_home_position(self) -> tuple[int, int]:
-        wheres = np.argwhere(self.map == self.object_dict["home"])
-        assert len(wheres) == 1, (
-            f"Found to many 'home' cells. Should be 1, found {len(wheres)}"
-        )
-        position = wheres[0]
-        return position
 
 
 if __name__ == "__main__":
