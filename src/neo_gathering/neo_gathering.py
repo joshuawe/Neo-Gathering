@@ -75,6 +75,9 @@ class NeoGathering(gym.Env, EzPickle):
         assert isinstance(map_size[0], int) and isinstance(map_size[1], int), (
             f"map_size should have two ints, got {type(map_size[0])} and {type(map_size[1])}"
         )
+        assert (
+            np.sum([num_dragons, num_gold, num_silver, 1]) >= map_size[0] * map_size[1]
+        ), f"map_size is too small for the desired number of items."
 
         self.render_mode = render_mode
 
@@ -85,7 +88,7 @@ class NeoGathering(gym.Env, EzPickle):
         self.num_gold = num_gold
         self.num_silver = num_silver
 
-        self.map = self.create_map()
+        self.map = self.create_map(self.map_size)
         self.initial_pos = np.array(
             [4, 2], dtype=np.int32
         )  # TODO: initial position should be at home position
@@ -127,9 +130,7 @@ class NeoGathering(gym.Env, EzPickle):
         self.window = None
         self.last_action = None
 
-    def create_map(
-        self, map_size: Optional[tuple] = None, seed: Optional[int] = None
-    ) -> np.ndarray:
+    def create_map(self, map_size: tuple = None) -> np.ndarray:
         map_size = self.map_size if map_size is None else map_size
         # empty map
         map = np.zeros(map_size, dtype=np.int16)
@@ -284,7 +285,11 @@ class NeoGathering(gym.Env, EzPickle):
     def reset(self, seed=None, **kwargs):
         super().reset(seed=seed)
 
-        self.current_pos = self.initial_pos
+        # create map
+        self.map = self.create_map(self.map_size)
+        self.current_pos = self._get_home_position()
+
+        self.current_pos = self.initial_pos  # TODO: delete this
         self.has_gem = 0
         self.has_gold = 0
         self.step_count = 0.0
@@ -335,6 +340,14 @@ class NeoGathering(gym.Env, EzPickle):
             pygame.quit()
             self.window = None
             self.clock = None
+
+    def _get_home_position(self) -> tuple[int, int]:
+        wheres = np.argwhere(self.map == self.object_dict["home"])
+        assert len(wheres) == 1, (
+            f"Found to many 'home' cells. Should be 1, found {len(wheres)}"
+        )
+        position = wheres[0]
+        return position
 
 
 if __name__ == "__main__":
