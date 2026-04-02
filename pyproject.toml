@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "neo_gathering"
+version = "0.1.0"
+description = "A redesigned 'Resource Gathering' environment for Reinforcement Learning. "
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "gymnasium>=1.2.3",
+    "ipykernel>=7.2.0",
+    "matplotlib>=3.10.8",
+    "mo-gymnasium>=1.3.2",
+]
+
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff.lint]
+select = ["E501", "I"]
+
