@@ -56,6 +56,7 @@ class NeoGathering(gym.Env, EzPickle):
         num_gold: int = 1,
         num_silver: int = 1,
         map_size: tuple = (5, 5),
+        obs_window: tuple = (5,5),
     ):
         EzPickle.__init__(self, render_mode)
 
@@ -78,20 +79,21 @@ class NeoGathering(gym.Env, EzPickle):
         assert (
             np.sum([num_dragons, num_gold, num_silver, 1]) <= map_size[0] * map_size[1]
         ), f"map_size is too small for the desired number of items."
+        # assert map_size[0]>obs_window[0] and map_size[1] > obs_window[1] # TODO: should we allow observation windows larger than map? Do allow larger than 2x the size?
 
         self.render_mode = render_mode
 
         self.map_size = map_size
+        self.obs_window = obs_window
 
-        self.object_dict = {"home": 1, "dragon": 2, "gold": 3, "silver": 4}
+        self.object_dict = {"wall": -1, "home": 1, "dragon": 2, "gold": 3, "silver": 4}
         self.num_dragons = num_dragons
         self.num_gold = num_gold
         self.num_silver = num_silver
 
         self.map = self.create_map(self.map_size)
-        self.initial_pos = np.array(
-            [4, 2], dtype=np.int32
-        )  # TODO: initial position should be at home position
+        self.obs = np.zeros(self.obs_window, dtype=np.int16)
+        self.current_pos = self._get_home_position()
 
         self.dir = {
             0: np.array([-1, 0], dtype=np.int32),  # up
@@ -100,7 +102,12 @@ class NeoGathering(gym.Env, EzPickle):
             3: np.array([0, 1], dtype=np.int32),  # right
         }
 
-        self.observation_space = Box(low=0.0, high=5.0, shape=(4,), dtype=np.int32)
+        self.observation_space = Box(
+            low=min(self.object_dict.values()),
+            high=max(self.object_dict.values()),
+            shape=self.obs_window,
+            dtype=np.int16,
+        )
 
         # action space specification: 1 dimension, 0 up, 1 down, 2 left, 3 right
         self.action_space = Discrete(4)
@@ -274,13 +281,18 @@ class NeoGathering(gym.Env, EzPickle):
             return np.transpose(
                 np.array(pygame.surfarray.pixels3d(self.window)), axes=(1, 0, 2)
             )
-
+    
     def get_observation(self):
-        pos = self.current_pos.copy()
-        observation = np.concatenate(
-            (pos, np.array([self.has_gold, self.has_gem], dtype=np.int32))
-        )
-        return observation
+        # current pos and the window size
+        x, y = self.current_pos
+        ws_x, ws_y = self.obs_window
+        dx = ws_x // 2
+        dy = ws_y // 2
+        # pad the map so edge positions don't produce out-of-bounds/negative slices
+        wall = self.object_dict["wall"]
+        padded_map = np.pad(self.map, ((dx, dx), (dy, dy)), constant_values=wall)
+        self.obs[:] = padded_map[x : x + ws_x, y : y + ws_y]
+        return self.obs
 
     def reset(self, seed=None, **kwargs):
         super().reset(seed=seed)
@@ -289,7 +301,6 @@ class NeoGathering(gym.Env, EzPickle):
         self.map = self.create_map(self.map_size)
         self.current_pos = self._get_home_position()
 
-        self.current_pos = self.initial_pos  # TODO: delete this
         self.has_gem = 0
         self.has_gold = 0
         self.step_count = 0.0
