@@ -56,7 +56,7 @@ class NeoGathering(gym.Env, EzPickle):
         num_gold: int = 1,
         num_silver: int = 1,
         map_size: tuple = (5, 5),
-        obs_window: tuple = (5,5),
+        obs_window: tuple = (3,3),
     ):
         EzPickle.__init__(self, render_mode)
 
@@ -268,6 +268,25 @@ class NeoGathering(gym.Env, EzPickle):
                     self.window.blit(
                         self.home_img, np.array([j, i]) * self.cell_size[0]
                     )
+        # Draw observation window overlay
+        x, y = self.current_pos
+        ws_x, ws_y = self.obs_window
+        dx, dy = ws_x // 2, ws_y // 2
+        row_start = max(0, x - dx)
+        row_end = min(self.map.shape[0], x - dx + ws_x)
+        col_start = max(0, y - dy)
+        col_end = min(self.map.shape[1], y - dy + ws_y)
+        pw = (col_end - col_start) * self.cell_size[0]
+        ph = (row_end - row_start) * self.cell_size[1]
+        obs_surface = pygame.Surface((pw, ph), pygame.SRCALPHA)
+        obs_surface.fill((60, 130, 255, 18))
+        pygame.draw.rect(
+            obs_surface, (80, 150, 255, 200), obs_surface.get_rect(), width=2
+        )
+        self.window.blit(
+            obs_surface, (col_start * self.cell_size[0], row_start * self.cell_size[1])
+        )
+
         last_action = self.last_action if self.last_action is not None else 2
         self.window.blit(
             self.elf_images[last_action], self.current_pos[::-1] * self.cell_size[0]
