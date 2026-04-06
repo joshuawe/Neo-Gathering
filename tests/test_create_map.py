@@ -49,3 +49,86 @@ def test_all_items_placed_on_distinct_cells():
     non_empty = env.map[env.map != 0]
     expected_count = 1 + 1 + 1 + 2  # home + gold + silver + dragons
     assert len(non_empty) == expected_count
+
+
+MOVEMENT_CASES = [
+    (5, 5),
+    (3, 7),
+    (10, 4),
+]
+
+
+@pytest.mark.parametrize("rows,cols", MOVEMENT_CASES)
+def test_movements(rows, cols):
+    """
+    For different map sizes, verify that every cell is reachable by walking
+    a systematic path and that wall-collisions (edges) are enforced.
+    See `NeoGathering` for integer values to action mapping.
+    """
+    env = NeoGathering(map_size=(rows, cols))
+    env.reset()
+    
+    UP = env.action_dict['up']
+    DOWN = env.action_dict['down']
+    LEFT = env.action_dict['left']
+    RIGHT = env.action_dict['right']
+
+    # ---- 1. reach every cell by sweeping row by row ----
+    visited = set()
+
+    # move to top-left corner
+    for _ in range(rows):
+        env.step(UP)
+    for _ in range(cols):
+        env.step(LEFT)
+
+    for row in range(rows):
+        for col in range(cols):
+            pos = tuple(env.current_pos.tolist())
+            visited.add(pos)
+            if col < cols - 1:
+                env.step(RIGHT)
+        # move down one row and reverse direction
+        env.step(DOWN)
+        if row < rows - 1:
+            for _ in range(cols - 1):
+                env.step(LEFT)
+
+    all_cells = {(r, c) for r in range(rows) for c in range(cols)}
+    assert visited == all_cells, (
+        f"Not all cells visited. Missing: {all_cells - visited}"
+    )
+
+    # ---- 2. wall-collision: stepping beyond an edge must not move the agent ----
+    # drive to top-left corner
+    for _ in range(rows):
+        env.step(UP)
+    for _ in range(cols):
+        env.step(LEFT)
+
+    assert tuple(env.current_pos.tolist()) == (0, 0)
+
+    env.step(UP)    # already at top row — must stay
+    assert tuple(env.current_pos.tolist()) == (0, 0), "UP from row 0 should be blocked"
+
+    env.step(LEFT)  # already at left col — must stay
+    assert tuple(env.current_pos.tolist()) == (0, 0), (
+        "LEFT from col 0 should be blocked"
+    )
+
+    # drive to bottom-right corner
+    for _ in range(rows):
+        env.step(DOWN)
+    for _ in range(cols):
+        env.step(RIGHT)
+
+    assert tuple(env.current_pos.tolist()) == (rows - 1, cols - 1)
+
+    env.step(DOWN)   # already at bottom row — must stay
+    assert tuple(env.current_pos.tolist()) == (rows - 1, cols - 1), (
+        "DOWN from last row should be blocked"
+    )
+    env.step(RIGHT)  # already at right col — must stay
+    assert tuple(env.current_pos.tolist()) == (rows - 1, cols - 1), (
+        "RIGHT from last col should be blocked"
+    )
