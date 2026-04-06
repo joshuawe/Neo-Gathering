@@ -100,7 +100,8 @@ class NeoGathering(gym.Env, EzPickle):
         self.obs = np.zeros(self.obs_window, dtype=np.int16)
         self.current_pos = self._get_home_position()
 
-        self.dir = {
+        self.action_dict = {'up': 0, 'down': 1, 'left': 2, 'right': 3}
+        self.direction_dict = {
             0: np.array([-1, 0], dtype=np.int32),  # up
             1: np.array([1, 0], dtype=np.int32),  # down
             2: np.array([0, -1], dtype=np.int32),  # left
@@ -206,7 +207,7 @@ class NeoGathering(gym.Env, EzPickle):
 
     def step(self, action):
         action = int(action)
-        next_pos = self.current_pos + self.dir[action]
+        next_pos = self.current_pos + self.direction_dict[action]
         self.last_action = action
 
         if self.is_valid_observation(next_pos):
