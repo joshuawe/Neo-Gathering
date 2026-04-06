@@ -96,9 +96,9 @@ class NeoGathering(gym.Env, EzPickle):
         self.num_gold = num_gold
         self.num_silver = num_silver
 
-        self.map = self.create_map(self.map_size)
+        self.map = None
         self.obs = np.zeros(self.obs_window, dtype=np.int16)
-        self.current_pos = self._get_home_position()
+        self.current_pos = None
 
         self.action_dict = {'up': 0, 'down': 1, 'left': 2, 'right': 3}
         self.direction_dict = {
@@ -130,8 +130,8 @@ class NeoGathering(gym.Env, EzPickle):
         self.size = 5
         self.cell_size = (64, 64)
         self.window_size = (
-            self.map.shape[1] * self.cell_size[1],
-            self.map.shape[0] * self.cell_size[0],
+            self.map_size[1] * self.cell_size[1],
+            self.map_size[0] * self.cell_size[0],
         )
         self.clock = None
         self.elf_images = []
@@ -152,7 +152,7 @@ class NeoGathering(gym.Env, EzPickle):
         options = list(options)
         # pick positions: Home, Dragon 1, Dragon 2, Gold, Sivler
         num_picks = 1 + self.num_dragons + self.num_gold + self.num_silver
-        picks: list = np.random.choice(
+        picks: list = self.np_random.choice(
             range(len(options)), size=num_picks, replace=False
         ).tolist()
         positions = [options[i] for i in picks]
