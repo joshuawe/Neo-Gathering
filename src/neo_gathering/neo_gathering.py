@@ -172,9 +172,9 @@ class NeoGathering(gym.Env, EzPickle):
     def is_valid_observation(self, observation):
         return (
             observation[0] >= 0
-            and observation[0] < self.size
+            and observation[0] < self.map_size[0]
             and observation[1] >= 0
-            and observation[1] < self.size
+            and observation[1] < self.map_size[1]
         )
     
     def get_observation(self):
@@ -238,7 +238,8 @@ class NeoGathering(gym.Env, EzPickle):
             done = True
             vec_reward[1] = self.has_gold
             vec_reward[2] = self.has_gem
-        return vec_reward, done
+        reward = np.sum(vec_reward).item()
+        return reward, done
 
     def close(self):
         if self.window is not None:
@@ -255,7 +256,7 @@ class NeoGathering(gym.Env, EzPickle):
         position = wheres[0]
         return position
     
-       def render(self):
+    def render(self):
         if self.render_mode is None:
             assert self.spec is not None
             gym.logger.warn(
