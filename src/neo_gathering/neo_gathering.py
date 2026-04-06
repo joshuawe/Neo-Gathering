@@ -152,7 +152,7 @@ class NeoGathering(gym.Env, EzPickle):
         options = list(options)
         # pick positions: Home, Dragon 1, Dragon 2, Gold, Sivler
         num_picks = 1 + self.num_dragons + self.num_gold + self.num_silver
-        picks: list = np.random.choice(
+        picks: list = self.np_random.choice(
             range(len(options)), size=num_picks, replace=False
         ).tolist()
         positions = [options[i] for i in picks]
