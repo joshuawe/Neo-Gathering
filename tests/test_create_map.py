@@ -90,7 +90,7 @@ def test_movements(rows, cols):
 
     for row in range(rows):
         for col in range(cols):
-            pos = tuple(env.current_pos.tolist())
+            pos = tuple(env.current_pos)
             visited.add(pos)
             if col < cols - 1:
                 env.step(RIGHT)
@@ -112,13 +112,13 @@ def test_movements(rows, cols):
     for _ in range(cols):
         env.step(LEFT)
 
-    assert tuple(env.current_pos.tolist()) == (0, 0)
+    assert tuple(env.current_pos) == (0, 0)
 
     env.step(UP)    # already at top row — must stay
-    assert tuple(env.current_pos.tolist()) == (0, 0), "UP from row 0 should be blocked"
+    assert tuple(env.current_pos) == (0, 0), "UP from row 0 should be blocked"
 
     env.step(LEFT)  # already at left col — must stay
-    assert tuple(env.current_pos.tolist()) == (0, 0), (
+    assert tuple(env.current_pos) == (0, 0), (
         "LEFT from col 0 should be blocked"
     )
 
@@ -128,13 +128,13 @@ def test_movements(rows, cols):
     for _ in range(cols):
         env.step(RIGHT)
 
-    assert tuple(env.current_pos.tolist()) == (rows - 1, cols - 1)
+    assert tuple(env.current_pos) == (rows - 1, cols - 1)
 
     env.step(DOWN)   # already at bottom row — must stay
-    assert tuple(env.current_pos.tolist()) == (rows - 1, cols - 1), (
+    assert tuple(env.current_pos) == (rows - 1, cols - 1), (
         "DOWN from last row should be blocked"
     )
     env.step(RIGHT)  # already at right col — must stay
-    assert tuple(env.current_pos.tolist()) == (rows - 1, cols - 1), (
+    assert tuple(env.current_pos) == (rows - 1, cols - 1), (
         "RIGHT from last col should be blocked"
     )
