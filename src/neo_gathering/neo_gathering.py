@@ -92,6 +92,11 @@ class NeoGathering(gym.Env, EzPickle):
         self.obs_window = obs_window
 
         self.object_dict = {"wall": -1, "home": 1, "dragon": 2, "gold": 3, "silver": 4}
+        self._val_wall   = -1
+        self._val_home   =  1
+        self._val_dragon =  2
+        self._val_gold   =  3
+        self._val_silver =  4
         self.num_dragons = num_dragons
         self.num_gold = num_gold
         self.num_silver = num_silver
@@ -185,8 +190,9 @@ class NeoGathering(gym.Env, EzPickle):
     
     def get_observation(self):
         x, y = self.current_pos
-        self.obs[:] = self._padded_map[x : x + self._ws_x, y : y + self._ws_y]
-        return self.obs
+        # self.obs[:] = self._padded_map[x : x + self._ws_x, y : y + self._ws_y]
+        # return self.obs
+        return self._padded_map[x : x + self._ws_x, y : y + self._ws_y]
 
     def reset(self, seed=None, **kwargs):
         super().reset(seed=seed)
@@ -229,14 +235,14 @@ class NeoGathering(gym.Env, EzPickle):
         done = False
 
         cell = self.get_map_value(self.current_pos)
-        self.has_gold |= cell == self.object_dict["gold"]
-        self.has_gem |= cell == self.object_dict["silver"]
-        if cell == self.object_dict["dragon"]:
+        self.has_gold |= cell == self._val_gold
+        self.has_gem |= cell == self._val_silver
+        if cell == self._val_dragon:
             # 0.9 chance of survival, 0.1 chance of death
             if self.np_random.random() < 0.1:
                 vec_reward[0] = -1.0
                 done = True
-        elif cell == self.object_dict["home"]:
+        elif cell == self._val_home:
             # if you are home again
             done = True
             vec_reward[1] = self.has_gold
