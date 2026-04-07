@@ -97,15 +97,20 @@ class NeoGathering(gym.Env, EzPickle):
         self.num_silver = num_silver
 
         self.map = None
-        self.obs = np.zeros(self.obs_window, dtype=np.int16)
+        self._padded_map = None  # the map with padding around
+        self._ws_x = self.obs_window[0] # window size in x-dim
+        self._ws_y = self.obs_window[1] # window size in y-dim
+        self._dx = self.obs_window[0] // 2  # used for computing window bounds 
+        self._dy = self.obs_window[1] // 2  # used for computing window bounds
+        self.obs = np.zeros(self.obs_window, dtype=np.int16) # cached array for obs
         self.current_pos = None
 
         self.action_dict = {'up': 0, 'down': 1, 'left': 2, 'right': 3}
         self.direction_dict = {
-            0: np.array([-1, 0], dtype=np.int32),  # up
-            1: np.array([1, 0], dtype=np.int32),  # down
-            2: np.array([0, -1], dtype=np.int32),  # left
-            3: np.array([0, 1], dtype=np.int32),  # right
+            0: (-1, 0),  # up
+            1: (1, 0),   # down
+            2: (0, -1),  # left
+            3: (0, 1),   # right
         }
 
         self.observation_space = Box(
@@ -168,7 +173,7 @@ class NeoGathering(gym.Env, EzPickle):
         return map
 
     def get_map_value(self, pos):
-        return self.map[pos[0]][pos[1]]
+        return self.map[pos[0], pos[1]]
 
     def is_valid_observation(self, observation):
         return (
@@ -179,15 +184,8 @@ class NeoGathering(gym.Env, EzPickle):
         )
     
     def get_observation(self):
-        # current pos and the window size
         x, y = self.current_pos
-        ws_x, ws_y = self.obs_window
-        dx = ws_x // 2
-        dy = ws_y // 2
-        # pad the map so edge positions don't produce out-of-bounds/negative slices
-        wall = self.object_dict["wall"]
-        padded_map = np.pad(self.map, ((dx, dx), (dy, dy)), constant_values=wall)
-        self.obs[:] = padded_map[x : x + ws_x, y : y + ws_y]
+        self.obs[:] = self._padded_map[x : x + self._ws_x, y : y + self._ws_y]
         return self.obs
 
     def reset(self, seed=None, **kwargs):
@@ -195,6 +193,11 @@ class NeoGathering(gym.Env, EzPickle):
 
         # create map
         self.map = self.create_map(self.map_size)
+        # precompute the padded map once
+        self._padded_map = np.pad(
+            self.map, ((self._dx, self._dx), (self._dy, self._dy)),
+            constant_values=self.object_dict["wall"],
+        )
         self.current_pos = self._get_home_position()
 
         self.has_gem = 0
@@ -207,7 +210,8 @@ class NeoGathering(gym.Env, EzPickle):
 
     def step(self, action):
         action = int(action)
-        next_pos = self.current_pos + self.direction_dict[action]
+        dx, dy = self.direction_dict[action]
+        next_pos = (self.current_pos[0] + dx, self.current_pos[1] + dy)
         self.last_action = action
 
         if self.is_valid_observation(next_pos):
@@ -225,11 +229,9 @@ class NeoGathering(gym.Env, EzPickle):
         done = False
 
         cell = self.get_map_value(self.current_pos)
-        if cell == self.object_dict["gold"]:
-            self.has_gold = 1
-        elif cell == self.object_dict["silver"]:
-            self.has_gem = 1
-        elif cell == self.object_dict["dragon"]:
+        self.has_gold |= cell == self.object_dict["gold"]
+        self.has_gem |= cell == self.object_dict["silver"]
+        if cell == self.object_dict["dragon"]:
             # 0.9 chance of survival, 0.1 chance of death
             if self.np_random.random() < 0.1:
                 vec_reward[0] = -1.0
@@ -254,8 +256,7 @@ class NeoGathering(gym.Env, EzPickle):
         assert len(wheres) == 1, (
             f"Found to many 'home' cells. Should be 1, found {len(wheres)}"
         )
-        position = wheres[0]
-        return position
+        return (int(wheres[0][0]), int(wheres[0][1]))
     
     def shortest_path(self) -> tuple[list, list]:
         """
@@ -476,7 +477,9 @@ class NeoGathering(gym.Env, EzPickle):
 
         last_action = self.last_action if self.last_action is not None else 2
         self.window.blit(
-            self.elf_images[last_action], self.current_pos[::-1] * self.cell_size[0]
+            self.elf_images[last_action],
+            (self.current_pos[1] * self.cell_size[0],
+             self.current_pos[0] * self.cell_size[0]),
         )
 
         if self.render_mode == "human":
