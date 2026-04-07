@@ -1,6 +1,9 @@
 import gymnasium as gym
 from gymnasium.utils.env_checker import check_env
+from stable_baselines3.common.env_checker import check_env as sb3_check_env
+
 import neo_gathering
+
 
 def test_load_resource_gathering():
     env = gym.make("resource-gathering-v0", render_mode="rgb_array")
@@ -28,3 +31,12 @@ def test_sanity_resource_gathering():
 def test_sanity_neo_gathering():
     env = gym.make("neo-gathering-v0", render_mode="rgb_array")
     check_env(env=env.unwrapped)
+    
+# --- SB3 checks ---
+def test_sb3_sanity_neo_gathering():
+    env = gym.make("neo-gathering-v0", render_mode=None)
+    sb3_check_env(env)
+    
+    env = gym.make("neo-gathering-v0", render_mode="rgb_array")
+    sb3_check_env(env)
+    
