@@ -107,10 +107,10 @@ class NeoGathering(gym.Env, EzPickle):
 
         self.action_dict = {'up': 0, 'down': 1, 'left': 2, 'right': 3}
         self.direction_dict = {
-            0: np.array([-1, 0], dtype=np.int32),  # up
-            1: np.array([1, 0], dtype=np.int32),  # down
-            2: np.array([0, -1], dtype=np.int32),  # left
-            3: np.array([0, 1], dtype=np.int32),  # right
+            0: (-1, 0),  # up
+            1: (1, 0),   # down
+            2: (0, -1),  # left
+            3: (0, 1),   # right
         }
 
         self.observation_space = Box(
@@ -173,7 +173,7 @@ class NeoGathering(gym.Env, EzPickle):
         return map
 
     def get_map_value(self, pos):
-        return self.map[pos[0]][pos[1]]
+        return self.map[pos[0], pos[1]]
 
     def is_valid_observation(self, observation):
         return (
@@ -210,7 +210,8 @@ class NeoGathering(gym.Env, EzPickle):
 
     def step(self, action):
         action = int(action)
-        next_pos = self.current_pos + self.direction_dict[action]
+        dx, dy = self.direction_dict[action]
+        next_pos = (self.current_pos[0] + dx, self.current_pos[1] + dy)
         self.last_action = action
 
         if self.is_valid_observation(next_pos):
@@ -255,8 +256,7 @@ class NeoGathering(gym.Env, EzPickle):
         assert len(wheres) == 1, (
             f"Found to many 'home' cells. Should be 1, found {len(wheres)}"
         )
-        position = wheres[0]
-        return position
+        return (int(wheres[0][0]), int(wheres[0][1]))
     
     def shortest_path(self) -> tuple[list, list]:
         """
@@ -477,7 +477,9 @@ class NeoGathering(gym.Env, EzPickle):
 
         last_action = self.last_action if self.last_action is not None else 2
         self.window.blit(
-            self.elf_images[last_action], self.current_pos[::-1] * self.cell_size[0]
+            self.elf_images[last_action],
+            (self.current_pos[1] * self.cell_size[0],
+             self.current_pos[0] * self.cell_size[0]),
         )
 
         if self.render_mode == "human":
