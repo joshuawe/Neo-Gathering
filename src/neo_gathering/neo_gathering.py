@@ -97,7 +97,12 @@ class NeoGathering(gym.Env, EzPickle):
         self.num_silver = num_silver
 
         self.map = None
-        self.obs = np.zeros(self.obs_window, dtype=np.int16)
+        self._padded_map = None  # the map with padding around
+        self._ws_x = self.obs_window[0] # window size in x-dim
+        self._ws_y = self.obs_window[1] # window size in y-dim
+        self._dx = self.obs_window[0] // 2  # used for computing window bounds 
+        self._dy = self.obs_window[1] // 2  # used for computing window bounds
+        self.obs = np.zeros(self.obs_window, dtype=np.int16) # cached array for obs
         self.current_pos = None
 
         self.action_dict = {'up': 0, 'down': 1, 'left': 2, 'right': 3}
@@ -179,15 +184,8 @@ class NeoGathering(gym.Env, EzPickle):
         )
     
     def get_observation(self):
-        # current pos and the window size
         x, y = self.current_pos
-        ws_x, ws_y = self.obs_window
-        dx = ws_x // 2
-        dy = ws_y // 2
-        # pad the map so edge positions don't produce out-of-bounds/negative slices
-        wall = self.object_dict["wall"]
-        padded_map = np.pad(self.map, ((dx, dx), (dy, dy)), constant_values=wall)
-        self.obs[:] = padded_map[x : x + ws_x, y : y + ws_y]
+        self.obs[:] = self._padded_map[x : x + self._ws_x, y : y + self._ws_y]
         return self.obs
 
     def reset(self, seed=None, **kwargs):
@@ -195,6 +193,11 @@ class NeoGathering(gym.Env, EzPickle):
 
         # create map
         self.map = self.create_map(self.map_size)
+        # precompute the padded map once
+        self._padded_map = np.pad(
+            self.map, ((self._dx, self._dx), (self._dy, self._dy)),
+            constant_values=self.object_dict["wall"],
+        )
         self.current_pos = self._get_home_position()
 
         self.has_gem = 0
