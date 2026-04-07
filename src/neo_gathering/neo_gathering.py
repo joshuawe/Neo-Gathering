@@ -225,11 +225,9 @@ class NeoGathering(gym.Env, EzPickle):
         done = False
 
         cell = self.get_map_value(self.current_pos)
-        if cell == self.object_dict["gold"]:
-            self.has_gold = 1
-        elif cell == self.object_dict["silver"]:
-            self.has_gem = 1
-        elif cell == self.object_dict["dragon"]:
+        self.has_gold |= cell == self.object_dict["gold"]
+        self.has_gem |= cell == self.object_dict["silver"]
+        if cell == self.object_dict["dragon"]:
             # 0.9 chance of survival, 0.1 chance of death
             if self.np_random.random() < 0.1:
                 vec_reward[0] = -1.0
