@@ -272,7 +272,7 @@ class NeoGathering(gym.Env, EzPickle):
             Scalar reward received when stepping into each cell after the start.
             len(rewards) == len(path) - 1.
         """
-        from collections import deque
+        import heapq
 
         assert self.map is not None, "Call env.reset() before shortest_path()."
 
@@ -293,30 +293,36 @@ class NeoGathering(gym.Env, EzPickle):
         assert gold_positions, "No gold on the map."
         assert silver_positions, "No gem/silver on the map."
 
-        def bfs(start: tuple, goal: tuple, avoid: set) -> list | None:
+        def heuristic(a: tuple, b: tuple) -> int:
+            return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+        def astar(start: tuple, goal: tuple, avoid: set) -> list | None:
             if start == goal:
                 return [start]
-            queue = deque([(start, [start])])
+            # heap entries: (f, g, pos, path)
+            heap = [(heuristic(start, goal), 0, start, [start])]
             visited = {start}
-            while queue:
-                pos, path = queue.popleft()
+            while heap:
+                _, g, pos, path = heapq.heappop(heap)
                 for delta in self.direction_dict.values():
                     nxt = (pos[0] + int(delta[0]), pos[1] + int(delta[1]))
                     if not self.is_valid_observation(nxt) or nxt in visited or nxt in avoid:  # noqa: E501
                         continue
+                    new_path = path + [nxt]
                     if nxt == goal:
-                        return path + [nxt]
+                        return new_path
                     visited.add(nxt)
-                    queue.append((nxt, path + [nxt]))
+                    ng = g + 1
+                    heapq.heappush(heap, (ng + heuristic(nxt, goal), ng, nxt, new_path))
             return None
 
         best_path = None
         for gold_pos in gold_positions:
             for silver_pos in silver_positions:
                 for avoid in (dragon_positions, set()):  # prefer dragon-free
-                    p1 = bfs(home_pos, gold_pos, avoid)
-                    p2 = bfs(gold_pos, silver_pos, avoid) if p1 is not None else None
-                    p3 = bfs(silver_pos, home_pos, avoid) if p2 is not None else None
+                    p1 = astar(home_pos, gold_pos, avoid)
+                    p2 = astar(gold_pos, silver_pos, avoid) if p1 is not None else None
+                    p3 = astar(silver_pos, home_pos, avoid) if p2 is not None else None
                     if p1 is not None and p2 is not None and p3 is not None:
                         full_path = p1 + p2[1:] + p3[1:]
                         if best_path is None or len(full_path) < len(best_path):
