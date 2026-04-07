@@ -299,21 +299,27 @@ class NeoGathering(gym.Env, EzPickle):
         def astar(start: tuple, goal: tuple, avoid: set) -> list | None:
             if start == goal:
                 return [start]
-            # heap entries: (f, g, pos, path)
-            heap = [(heuristic(start, goal), 0, start, [start])]
-            visited = {start}
+            # heap entries: (f, g, pos) — no path stored in heap
+            heap = [(heuristic(start, goal), 0, start)]
+            came_from = {start: None}
             while heap:
-                _, g, pos, path = heapq.heappop(heap)
+                _, g, pos = heapq.heappop(heap)
                 for delta in self.direction_dict.values():
                     nxt = (pos[0] + int(delta[0]), pos[1] + int(delta[1]))
-                    if not self.is_valid_observation(nxt) or nxt in visited or nxt in avoid:  # noqa: E501
+                    if not self.is_valid_observation(nxt) or nxt in came_from or nxt in avoid:  # noqa: E501
                         continue
-                    new_path = path + [nxt]
+                    came_from[nxt] = pos
                     if nxt == goal:
-                        return new_path
-                    visited.add(nxt)
+                        # reconstruct path by backtracking through came_from
+                        path = []
+                        node = nxt
+                        while node is not None:
+                            path.append(node)
+                            node = came_from[node]
+                        path.reverse()
+                        return path
                     ng = g + 1
-                    heapq.heappush(heap, (ng + heuristic(nxt, goal), ng, nxt, new_path))
+                    heapq.heappush(heap, (ng + heuristic(nxt, goal), ng, nxt))
             return None
 
         best_path = None
