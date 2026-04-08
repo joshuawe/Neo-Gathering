@@ -242,6 +242,7 @@ class NeoGathering(gym.Env, EzPickle):
             if self.np_random.random() < 0.1:
                 vec_reward[0] = -1.0
                 done = True
+            
         elif cell == self._val_home:
             # if you are home again
             done = True
