@@ -1,9 +1,10 @@
 """
-Creates two videos of a random agent interacting with the NeoGathering environment.
+Creates a GIF of a random agent interacting with the NeoGathering environment,
+stitching two clips together:
 
-Video 1: 5x5 map, 3x3 obs window, 100 steps (home field entry blocked).
-Video 2: 10x10 map — obs window animation (3x3 → 5x5 → 7x7 → back to 5x5),
-         then 100 steps with home field entry blocked.
+  Clip 1: 5×5 map, 3×3 obs window, 100 steps (home field entry blocked).
+  Clip 2: 10×10 map — obs window animation (3×3 → 5×5 → 7×7 → back to 5×5),
+           then 100 steps with home field entry blocked.
 
 Requires dev dependencies: uv sync --group dev
 """
@@ -13,12 +14,14 @@ import os
 import gymnasium as gym
 import imageio
 import numpy as np
+from PIL import Image
 
 import neo_gathering  # noqa: F401
 
 OUTPUT_DIR = "figures"
 FPS = 12
-PAUSE_FRAMES = 3  # frames held per obs-window size during animation (~3 s at 4 fps)
+PAUSE_FRAMES = 5   # frames held per obs-window size during animation
+GAP_FRAMES = 2     # black frames between the two clips
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -66,10 +69,18 @@ def record_steps(env, env_raw, n_steps: int) -> list:
     return frames
 
 
+def resize_frames(frames: list, size: int) -> list:
+    """Resize a list of (H, W, C) frames to (size, size, C) using nearest-neighbour."""
+    return [
+        np.array(Image.fromarray(f).resize((size, size), Image.NEAREST))
+        for f in frames
+    ]
+
+
 # ---------------------------------------------------------------------------
-# Video 1 — 5×5 map, 3×3 obs window, 100 steps
+# Clip 1 — 5×5 map, 3×3 obs window, 100 steps
 # ---------------------------------------------------------------------------
-print("Recording Video 1: 5×5 map, 3×3 obs window, 100 steps …")
+print("Recording Clip 1: 5×5 map, 3×3 obs window, 100 steps …")
 
 env = gym.make(
     "neo-gathering-v0",
@@ -80,18 +91,15 @@ env = gym.make(
 env.reset(seed=42)
 env_raw = env.unwrapped
 
-frames = [env.render()]
-frames += record_steps(env, env_raw, 50)
+frames_1 = [env.render()]
+frames_1 += record_steps(env, env_raw, 50)
 env.close()
-
-out_path = os.path.join(OUTPUT_DIR, "neo_gathering_5x5.mp4")
-imageio.mimwrite(out_path, frames, fps=FPS)
-print(f"  → {out_path}  ({len(frames)} frames)")
+print(f"  {len(frames_1)} frames collected")
 
 # ---------------------------------------------------------------------------
-# Video 2 — 10×10 map, obs-window animation then 100 steps
+# Clip 2 — 10×10 map, obs-window animation + 100 steps
 # ---------------------------------------------------------------------------
-print("Recording Video 2: 10×10 map, obs-window animation + 100 steps …")
+print("Recording Clip 2: 10×10 map, obs-window animation + 100 steps …")
 
 env = gym.make(
     "neo-gathering-v0",
@@ -100,31 +108,41 @@ env = gym.make(
     obs_window=(3, 3),
     num_gold=10,
     num_silver=5,
-    num_dragons=4
+    num_dragons=4,
 )
 env.reset(seed=8)
 env_raw = env.unwrapped
 
-frames = []
+frames_2 = []
 
 # Pause on initial state (3×3)
-frames += [env.render()] * PAUSE_FRAMES
+frames_2 += [env.render()] * PAUSE_FRAMES
+frames_2 += record_steps(env, env_raw, 10)
 
-# Grow obs window
-for size in (3, 7, 9, 5):
+# Animate obs window
+for size in (3, 5, 7):
     set_obs_window(env_raw, size)
-    frames += [env.render()] * PAUSE_FRAMES
-    frames += record_steps(env, env_raw, 10)
-    frames += [env.render()] * PAUSE_FRAMES
+    frames_2 += [env.render()] * PAUSE_FRAMES
+    # frames_2 += record_steps(env, env_raw, 15)
+    # frames_2 += [env.render()] * PAUSE_FRAMES
 
-# Return to 5×5
-set_obs_window(env_raw, 5)
-frames += [env.render()] * PAUSE_FRAMES
-
-# Agent moves for 100 steps
-# frames += record_steps(env, env_raw, 50)
+frames_2 += record_steps(env, env_raw, 50)
 env.close()
+print(f"  {len(frames_2)} frames collected")
 
-out_path = os.path.join(OUTPUT_DIR, "neo_gathering_10x10.mp4")
-imageio.mimwrite(out_path, frames, fps=FPS)
-print(f"  → {out_path}  ({len(frames)} frames)")
+# ---------------------------------------------------------------------------
+# Stitch and write GIF
+# ---------------------------------------------------------------------------
+target_size = max(frames_1[0].shape[0], frames_2[0].shape[0])
+
+if frames_1[0].shape[0] != target_size:
+    frames_1 = resize_frames(frames_1, target_size)
+if frames_2[0].shape[0] != target_size:
+    frames_2 = resize_frames(frames_2, target_size)
+
+gap = [np.zeros_like(frames_1[0])] * GAP_FRAMES
+all_frames = frames_1 + gap + frames_2
+
+out_path = os.path.join(OUTPUT_DIR, "neo_gathering.gif")
+imageio.mimwrite(out_path, all_frames, fps=FPS, loop=0)
+print(f"\n→ {out_path}  ({len(all_frames)} frames, {len(all_frames) / FPS:.1f} s)")
