@@ -237,6 +237,10 @@ class NeoGathering(gym.Env, EzPickle):
         cell = self.get_map_value(self.current_pos)
         self.has_gold |= cell == self._val_gold
         self.has_gem |= cell == self._val_silver
+        if cell in (self._val_gold, self._val_silver):
+            r, c = self.current_pos
+            self.map[r, c] = 0
+            self._padded_map[r + self._dx, c + self._dy] = 0
         if cell == self._val_dragon:
             # 0.9 chance of survival, 0.1 chance of death
             if self.np_random.random() < 0.1:
@@ -446,12 +450,12 @@ class NeoGathering(gym.Env, EzPickle):
                     self.mountain_bg_img[check_board_mask],
                     np.array([j, i]) * self.cell_size[0],
                 )
-                if self.map[i, j] == self.object_dict["gold"] and not self.has_gold:
+                if self.map[i, j] == self.object_dict["gold"]:
                     self.window.blit(
                         self.gold_img,
                         np.array([j + 0.22, i + 0.25]) * self.cell_size[0],
                     )
-                elif self.map[i, j] == self.object_dict["silver"] and not self.has_gem:
+                elif self.map[i, j] == self.object_dict["silver"]:
                     self.window.blit(
                         self.gem_img, np.array([j + 0.22, i + 0.25]) * self.cell_size[0]
                     )

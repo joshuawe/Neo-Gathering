@@ -1,26 +1,44 @@
 # Neo-Gathering
-A redesigned "Resource Gathering" environment for Reinforcement Learning in the gymnasium framework.
+A redesigned version of the "[Resource Gathering](https://mo-gymnasium.farama.org/environments/resource-gathering/)" environment for Reinforcement Learning in the Gymnasium framework.
 
-We take the original Resource Gathering environment and improve it:
-- [x] We can randomly generate maps, by setting a seed.
-- [x] The map size can be defined.
-- [x] The number of dragons, gold and silver are .
-- [x] The observation space is a fixed area around the agent (5x5 by default)
-- [ ] Computationally faster -> env vectorization
-- [ ] Computationally faster -> env vectorization (JAX implementation planned.)
-- [x] benchmark the difference in speed using `gymnasium.utils.performance.benchmark_step` and co
-- [ ] Scalar objective `neo-gathering` and multiple objective env `mo-neo-gathering` (this is basically the same env with one flag set differenctly)
+|          | NeoGathering | ResourceGathering |
+|  -----   | -------------|-------------------|
+|          | <img src="./figures/neo_gathering.gif" width="300"/> | <img src="./figures/resource-gathering.gif" width="300"/> |
+| Map Size | Adjustable `map_size=(10,10)` + seeded | One map |
+| Observations | Adjustable area around agent `obs_window=(3,3)` | x,y-position, has_gold and has_diamond | 
+| Num Items | Adjustable via `num_gold`, `num_silver`, `num_dragons` | Fixed |
+
+
 
 
 # Installation
 
 Install this repository with `uv`
 
-```
+```bash
 uv add "git+https://github.com/joshuawe/Neo-Gathering"
 ```
 
 (or using `pip`: `pip install "git+https://github.com/joshuawe/Neo-Gathering"`)
+
+# Usage
+
+Use the environment via
+
+```Python
+import gymnasium as gym
+import neo_gathering
+
+env = gym.make(
+    "neo-gathering-v0",
+    render_mode="rgb_array",
+    map_size=(10, 10),
+    obs_window=(3, 3),
+    num_gold=10,
+    num_silver=5,
+    num_dragons=4,
+)
+```
 
 
 
@@ -33,11 +51,11 @@ Tests are written in the `pytest` framework and stored under `tests/`. Use `uv r
 
 Measured with `gymnasium.utils.performance` (`target_duration=10s`, `seed=42`) on a 5×5 map with a 5×5 observation window. Run `uv run python scripts/benchmark.py` to reproduce.
 
-| Metric | neo-gathering | resource-gathering | ratio |
+| Metric | neo-gathering | resource-gathering | ratio [new/old] |
 |---|---|---|---|
-| Init (inits/s) | 2 590 | 3 691 | 0.70x |
-| Step (steps/s) | 117 163 | 174 720 | 0.67x |
-| Render (frames/s) | 1 597 | 1 729 | 0.92x |
+| Init | 2 590 inits/s | 3 691 inits/s | 0.70x |
+| Step | 117 163 steps/s | 174 720 steps/s | 0.67x |
+| Render | 1 597 frames/s | 1 729 frames/s | 0.92x |
 
 **Notes**
 
