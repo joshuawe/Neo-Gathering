@@ -95,7 +95,8 @@ class NeoGathering(gym.Env, EzPickle):
         self.map_size = map_size
         self.obs_window = obs_window
 
-        self.object_dict = {"wall": -1, "home": 1, "dragon": 2, "gold": 3, "silver": 4}
+        self.object_dict = {"wall": -1, "empty": 0, "home": 1, "dragon": 2, "gold": 3, "silver": 4}
+        # numeric values in order to avoid lookup
         self._val_wall = -1
         self._val_home = 1
         self._val_dragon = 2
@@ -195,7 +196,7 @@ class NeoGathering(gym.Env, EzPickle):
         Parameters
         ----------
         pos : Union[list, tuple, NDArray]
-            The position to look up
+            The position to look up in map coordinates (not padded_map coordinates!)
 
         Returns
         -------
@@ -206,8 +207,23 @@ class NeoGathering(gym.Env, EzPickle):
         x, y = pos[0] + self._dx, pos[1] + self._dy
         padded_map_value = self._padded_map[x, y]
         return padded_map_value
+    
+    def set_padded_map_value(self, position: tuple, value:int) -> None:
+        """
+        Set the cell of `position` to `value`.
 
-    def is_valid_observation(self, observation):
+        Parameters
+        ----------
+        position : tuple
+            The x, y position of the cell in `self.map` coorindates (not padded map coordinates!)
+        value : int
+            The cell value. Look at `self.object_dic` for details.
+        """
+        x, y = position[0] + self._dx, position[1] + self._dy
+        self._padded_map[x, y] = value
+        return
+
+    def is_valid_position(self, observation):
         return (
             observation[0] >= 0
             and observation[0] < self.map_size[0]
@@ -248,15 +264,19 @@ class NeoGathering(gym.Env, EzPickle):
         next_pos = (self.current_pos[0] + dx, self.current_pos[1] + dy)
         self.last_action = action
 
-        if self.is_valid_observation(next_pos):
+        if self.is_valid_position(next_pos):
             self.current_pos = next_pos
 
-        vec_reward, done = self.get_reward()
-
+        # get reward
+        reward, done = self.get_reward()
+        # get observation
         observation = self.get_observation()
+        # change map value to zero
+        self.set_padded_map_value(self.current_pos, 0) # empty cell, see self.object_dict
+        
         if self.render_mode == "human":
             self.render()
-        return observation, vec_reward, done, False, {}
+        return observation, reward, done, False, {}
 
     def get_multi_objective_reward(self):
         done = False
@@ -266,16 +286,16 @@ class NeoGathering(gym.Env, EzPickle):
         step_reward = self.step_reward
 
         # gathered resources
-        gold_reward = self.gold_reward * (cell == self.object_dict["gold"])
-        diamond_reward = self.diamond_reward * (cell == self.object_dict["silver"])
+        gold_reward = self.gold_reward * (cell == self._val_gold)
+        diamond_reward = self.diamond_reward * (cell == self._val_silver)
         
         # dragon
-        dragon_reward = self.dragon_reward * (cell == self.object_dict["dragon"])
+        dragon_reward = self.dragon_reward * (cell == self._val_dragon)
         
         # if at home
         if cell == self.object_dict["home"]:
-            all_gold = (self._padded_map != self.object_dict["gold"]).all()
-            all_diamond = (self._padded_map != self.object_dict["silver"]).all()
+            all_gold = (self._padded_map != self._val_gold).all()
+            all_diamond = (self._padded_map != self._val_silver).all()
             # add to resource reward, effectively doubling total reward
             gold_reward = self.num_gold * all_gold
             diamond_reward = self.num_silver * all_diamond
@@ -352,7 +372,7 @@ class NeoGathering(gym.Env, EzPickle):
                 for delta in self.direction_dict.values():
                     nxt = (pos[0] + int(delta[0]), pos[1] + int(delta[1]))
                     if (
-                        not self.is_valid_observation(nxt)
+                        not self.is_valid_position(nxt)
                         or nxt in came_from
                         or nxt in avoid
                     ):  # noqa: E501
