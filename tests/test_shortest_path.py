@@ -20,8 +20,8 @@ def make_env_with_map(grid: np.ndarray) -> NeoGathering:
     env.reset(seed=0)
     env.map = grid.copy()
     env.current_pos = env._get_home_position()
-    env.has_gold = 0
-    env.has_gem = 0
+    env.has_all_gold = 0
+    env.has_all_diamond = 0
     return env
 
 
