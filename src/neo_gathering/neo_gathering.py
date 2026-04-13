@@ -1,17 +1,19 @@
 import logging
 from os import path
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from itertools import product
 
 import gymnasium as gym
 import numpy as np
+from numpy.typing import NDArray
 import pygame
 from gymnasium.spaces import Box, Discrete
 from gymnasium.utils import EzPickle
 
 
 logger = logging.getLogger(__name__)
+
 
 class NeoGathering(gym.Env, EzPickle):
     """
@@ -59,7 +61,7 @@ class NeoGathering(gym.Env, EzPickle):
         num_gold: int = 1,
         num_silver: int = 1,
         map_size: tuple = (5, 5),
-        obs_window: tuple = (3,3),
+        obs_window: tuple = (3, 3),
     ):
         EzPickle.__init__(self, render_mode)
 
@@ -83,8 +85,10 @@ class NeoGathering(gym.Env, EzPickle):
             np.sum([num_dragons, num_gold, num_silver, 1]) <= map_size[0] * map_size[1]
         ), f"map_size is too small for the desired number of items."
         # assert map_size[0]>obs_window[0] and map_size[1] > obs_window[1] # TODO: should we allow observation windows larger than map? Do allow larger than 2x the size?
-        if (obs_window[0]%2 == 0) or (obs_window[1]%2 == 0):
-            logger.warning("At least one dim of the observation window is even, this results in the viewing box being NOT centered around the agent. In order to center the agent perfectly in the observation window use uneven numbers.")  # noqa: E501
+        if (obs_window[0] % 2 == 0) or (obs_window[1] % 2 == 0):
+            logger.warning(
+                "At least one dim of the observation window is even, this results in the viewing box being NOT centered around the agent. In order to center the agent perfectly in the observation window use uneven numbers."
+            )  # noqa: E501
 
         self.render_mode = render_mode
 
@@ -92,30 +96,30 @@ class NeoGathering(gym.Env, EzPickle):
         self.obs_window = obs_window
 
         self.object_dict = {"wall": -1, "home": 1, "dragon": 2, "gold": 3, "silver": 4}
-        self._val_wall   = -1
-        self._val_home   =  1
-        self._val_dragon =  2
-        self._val_gold   =  3
-        self._val_silver =  4
+        self._val_wall = -1
+        self._val_home = 1
+        self._val_dragon = 2
+        self._val_gold = 3
+        self._val_silver = 4
         self.num_dragons = num_dragons
         self.num_gold = num_gold
         self.num_silver = num_silver
 
         self.map = None
         self._padded_map = None  # the map with padding around
-        self._ws_x = self.obs_window[0] # window size in x-dim
-        self._ws_y = self.obs_window[1] # window size in y-dim
-        self._dx = self.obs_window[0] // 2  # used for computing window bounds 
+        self._ws_x = self.obs_window[0]  # window size in x-dim
+        self._ws_y = self.obs_window[1]  # window size in y-dim
+        self._dx = self.obs_window[0] // 2  # used for computing window bounds
         self._dy = self.obs_window[1] // 2  # used for computing window bounds
-        self.obs = np.zeros(self.obs_window, dtype=np.int16) # cached array for obs
+        self.obs = np.zeros(self.obs_window, dtype=np.int16)  # cached array for obs
         self.current_pos = None
 
-        self.action_dict = {'up': 0, 'down': 1, 'left': 2, 'right': 3}
+        self.action_dict = {"up": 0, "down": 1, "left": 2, "right": 3}
         self.direction_dict = {
             0: (-1, 0),  # up
-            1: (1, 0),   # down
+            1: (1, 0),  # down
             2: (0, -1),  # left
-            3: (0, 1),   # right
+            3: (0, 1),  # right
         }
 
         self.observation_space = Box(
@@ -135,6 +139,10 @@ class NeoGathering(gym.Env, EzPickle):
             dtype=np.float32,
         )
         self.reward_dim = 3
+        self.step_reward = -0.1
+        self.gold_reward = 1
+        self.diamond_reward = 1
+        self.dragon_reward = -1
 
         # pygame
         self.size = 5
@@ -153,7 +161,7 @@ class NeoGathering(gym.Env, EzPickle):
         self.window = None
         self.last_action = None
 
-    def create_map(self, map_size: tuple = None) -> np.ndarray:
+    def create_map(self, map_size: tuple = None) -> NDArray:
         map_size = self.map_size if map_size is None else map_size
         # empty map
         map = np.zeros(map_size, dtype=np.int16)
@@ -177,8 +185,27 @@ class NeoGathering(gym.Env, EzPickle):
 
         return map
 
-    def get_map_value(self, pos):
-        return self.map[pos[0], pos[1]]
+    def get_padded_map_value(
+        self, pos: Union[list, tuple, NDArray]
+    ) -> NDArray:
+        """
+        Returns the  padded map value.
+        Note: The map is never changed, while the padded map changes based on the agent's interactions.
+
+        Parameters
+        ----------
+        pos : Union[list, tuple, NDArray]
+            The position to look up
+
+        Returns
+        -------
+        NDArray
+            The padded map value.
+        """
+        # map_value = self.map[pos[0], pos[1]]
+        x, y = pos[0] + self._dx, pos[1] + self._dy
+        padded_map_value = self._padded_map[x, y]
+        return padded_map_value
 
     def is_valid_observation(self, observation):
         return (
@@ -187,7 +214,7 @@ class NeoGathering(gym.Env, EzPickle):
             and observation[1] >= 0
             and observation[1] < self.map_size[1]
         )
-    
+
     def get_observation(self):
         x, y = self.current_pos
         # self.obs[:] = self._padded_map[x : x + self._ws_x, y : y + self._ws_y]
@@ -201,13 +228,14 @@ class NeoGathering(gym.Env, EzPickle):
         self.map = self.create_map(self.map_size)
         # precompute the padded map once
         self._padded_map = np.pad(
-            self.map, ((self._dx, self._dx), (self._dy, self._dy)),
+            self.map,
+            ((self._dx, self._dx), (self._dy, self._dy)),
             constant_values=self.object_dict["wall"],
         )
         self.current_pos = self._get_home_position()
 
-        self.has_gem = 0
-        self.has_gold = 0
+        self.has_all_diamond = False
+        self.has_all_gold = False
         self.step_count = 0.0
         observation = self.get_observation()
         if self.render_mode == "human":
@@ -230,30 +258,35 @@ class NeoGathering(gym.Env, EzPickle):
             self.render()
         return observation, vec_reward, done, False, {}
 
-    def get_reward(self):
-        vec_reward = np.zeros(3, dtype=np.float32)
+    def get_multi_objective_reward(self):
         done = False
+        cell = self.get_padded_map_value(self.current_pos)
+        
+        # step reward
+        step_reward = self.step_reward
 
-        cell = self.get_map_value(self.current_pos)
-        self.has_gold |= cell == self._val_gold
-        self.has_gem |= cell == self._val_silver
-        if cell in (self._val_gold, self._val_silver):
-            r, c = self.current_pos
-            self.map[r, c] = 0
-            self._padded_map[r + self._dx, c + self._dy] = 0
-        if cell == self._val_dragon:
-            # 0.9 chance of survival, 0.1 chance of death
-            if self.np_random.random() < 0.1:
-                vec_reward[0] = -1.0
-                done = True
-            
-        elif cell == self._val_home:
-            # if you are home again
+        # gathered resources
+        gold_reward = self.gold_reward * (cell == self.object_dict["gold"])
+        diamond_reward = self.diamond_reward * (cell == self.object_dict["silver"])
+        
+        # dragon
+        dragon_reward = self.dragon_reward * (cell == self.object_dict["dragon"])
+        
+        # if at home
+        if cell == self.object_dict["home"]:
+            all_gold = (self._padded_map != self.object_dict["gold"]).all()
+            all_diamond = (self._padded_map != self.object_dict["silver"]).all()
+            # add to resource reward, effectively doubling total reward
+            gold_reward = self.num_gold * all_gold
+            diamond_reward = self.num_silver * all_diamond
             done = True
-            vec_reward[1] = self.has_gold
-            vec_reward[2] = self.has_gem
-        reward = np.sum(vec_reward).item()
-        return reward, done
+        
+        return (step_reward, gold_reward, diamond_reward), done
+    
+    def get_reward(self):
+        rewards, done = self.get_multi_objective_reward()
+        summed_reward = rewards[0] + rewards[1] + rewards[2]
+        return summed_reward, done
 
     def close(self):
         if self.window is not None:
@@ -268,7 +301,7 @@ class NeoGathering(gym.Env, EzPickle):
             f"Found to many 'home' cells. Should be 1, found {len(wheres)}"
         )
         return (int(wheres[0][0]), int(wheres[0][1]))
-    
+
     def shortest_path(self) -> tuple[list, list]:
         """
         Compute the optimal (shortest) path: home -> gold -> gem -> home.
@@ -318,7 +351,11 @@ class NeoGathering(gym.Env, EzPickle):
                 _, g, pos = heapq.heappop(heap)
                 for delta in self.direction_dict.values():
                     nxt = (pos[0] + int(delta[0]), pos[1] + int(delta[1]))
-                    if not self.is_valid_observation(nxt) or nxt in came_from or nxt in avoid:  # noqa: E501
+                    if (
+                        not self.is_valid_observation(nxt)
+                        or nxt in came_from
+                        or nxt in avoid
+                    ):  # noqa: E501
                         continue
                     came_from[nxt] = pos
                     if nxt == goal:
@@ -489,8 +526,10 @@ class NeoGathering(gym.Env, EzPickle):
         last_action = self.last_action if self.last_action is not None else 2
         self.window.blit(
             self.elf_images[last_action],
-            (self.current_pos[1] * self.cell_size[0],
-             self.current_pos[0] * self.cell_size[0]),
+            (
+                self.current_pos[1] * self.cell_size[0],
+                self.current_pos[0] * self.cell_size[0],
+            ),
         )
 
         if self.render_mode == "human":
