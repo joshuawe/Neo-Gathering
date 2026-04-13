@@ -20,7 +20,7 @@ import neo_gathering  # noqa: F401
 
 OUTPUT_DIR = "figures"
 FPS = 12
-PAUSE_FRAMES = 5   # frames held per obs-window size during animation
+PAUSE_FRAMES = 8   # frames held per obs-window size during animation
 GAP_FRAMES = 2     # black frames between the two clips
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -110,7 +110,7 @@ env = gym.make(
     num_silver=5,
     num_dragons=4,
 )
-env.reset(seed=8)
+env.reset(seed=10)
 env_raw = env.unwrapped
 
 frames_2 = []
