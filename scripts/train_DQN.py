@@ -31,8 +31,8 @@ env = make_vec_env(
     n_envs=N_ENVS,
 )
 
-env = VecFrameStack(env, n_stack=20)
-eval_env = make_vec_env("neo-gathering-v0", env_kwargs=env_kwargs, n_envs=12)
+env = VecFrameStack(env, n_stack=40)
+eval_env = make_vec_env("neo-gathering-v0", env_kwargs=env_kwargs, n_envs=N_ENVS)
 _ = env.reset()
 
 
@@ -96,6 +96,13 @@ ax.axhline(
     linestyle="--",
     label=f"Init reward ({mean_initialiazed:.2f})",
 )
+
+# upper and lower bound of optimum
+unwr = env.venv.envs[0].unwrapped
+upper = 2 * (unwr.num_gold * unwr.gold_reward + unwr.num_silver * unwr.diamond_reward) 
+lower = upper - unwr.step_reward * (unwr.num_gold + unwr.num_silver)
+ax.axhspan(lower, upper, alpha=0.2, color="orange", label="Optimal range")
+
 ax.set_xlabel("Timesteps")
 ax.set_ylabel("Reward")
 ax.set_title("Reward over Training Steps (DQN)")
