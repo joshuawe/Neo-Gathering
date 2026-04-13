@@ -7,6 +7,7 @@ A redesigned version of the "[Resource Gathering](https://mo-gymnasium.farama.or
 | Map Size | Adjustable `map_size=(10,10)` + seeded | One map |
 | Observations | Adjustable area around agent `obs_window=(3,3)` | x,y-position, has_gold and has_diamond | 
 | Num Items | Adjustable via `num_gold`, `num_silver`, `num_dragons` | Fixed |
+| Shortest Path | Via A* search `env.shortest_path()` | - |
 
 
 
